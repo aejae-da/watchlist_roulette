@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IMDb Watchlist Roulette</title>
+    <style>
+        :root { --imdb-yellow: #f5c518; --bg-dark: #121212; --card-bg: #1e1e1e; --text-muted: #aaa; --blue: #3498db; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--bg-dark); color: #fff; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; }
+        .container { background: var(--card-bg); padding: 2.5rem; border-radius: 12px; width: 100%; max-width: 550px; box-shadow: 0 15px 35px rgba(0,0,0,0.6); border: 1px solid #333; }
+        h1 { color: var(--imdb-yellow); text-align: center; margin-bottom: 25px; }
+        
+        #drop-zone { border: 2px dashed #444; padding: 40px; text-align: center; border-radius: 8px; color: var(--text-muted); cursor: pointer; margin-bottom: 20px; transition: 0.3s; background: #181818; }
+        #drop-zone.dragover { border-color: var(--imdb-yellow); background: rgba(245, 197, 24, 0.05); color: #fff; }
+        
+        .filters { display: none; background: #2a2a2a; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        .filter-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; }
+        .filter-group { display: flex; flex-direction: column; }
+        label.section-label { font-size: 0.75rem; text-transform: uppercase; color: var(--imdb-yellow); font-weight: bold; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+        
+        /* Updated Toggle: Bold, Yellow, No Underline */
+        .select-toggle { 
+            cursor: pointer; 
+            text-decoration: none; 
+            font-size: 0.7rem; 
+            color: var(--imdb-yellow); 
+            text-transform: uppercase; 
+            font-weight: bold; 
+            transition: 0.2s; 
+        }
+        .select-toggle:hover { opacity: 0.7; }
+        
+        select, input { background: #333; color: #fff; border: 1px solid #444; padding: 10px; border-radius: 4px; font-size: 0.9rem; }
+        .checkbox-group { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 5px; margin-bottom: 15px; }
+        .checkbox-group label { text-transform: none; color: #fff; font-weight: normal; cursor: pointer; display: flex; align-items: center; gap: 5px; font-size: 0.9rem; }
+        
+        button#spin-btn { background: var(--imdb-yellow); color: #000; border: none; width: 100%; padding: 18px; font-weight: bold; border-radius: 5px; cursor: pointer; font-size: 1.1rem; transition: 0.2s; }
+        button#spin-btn:hover { background: #e2b616; transform: translateY(-2px); }
+        
+        #result { margin-top: 30px; padding-top: 20px; border-top: 1px solid #333; display: none; text-align: center; animation: fadeIn 0.5s ease; }
+        .res-title { font-size: 1.8rem; font-weight: bold; margin-bottom: 8px; color: #fff; }
+        .res-meta { color: var(--text-muted); margin-bottom: 15px; font-size: 0.95rem; }
+        .imdb-btn { background: #3498db; color: white; text-decoration: none; padding: 10px 25px; border-radius: 5px; display: inline-block; font-weight: bold; transition: 0.3s; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>IMDb Watchlist Roulette</h1>
+    
+    <div id="drop-zone">
+        Drop <b>IMDb WATCHLIST.csv</b> here<br>
+        <small>or click to select</small>
+    </div>
+    <input type="file" id="file-input" accept=".csv" style="display: none;">
+
+    <div class="filters" id="ui-area">
+        <div class="filter-group">
+            <label class="section-label">
+                Title Type 
+                <span class="select-toggle" id="toggle-all">UNSELECT ALL</span>
+            </label>
+            <div class="checkbox-group" id="type-container">
+                <label><input type="checkbox" class="type-filter" value="movie" checked> Movie</label>
+                <label><input type="checkbox" class="type-filter" value="tv series" checked> TV Series</label>
+                <label><input type="checkbox" class="type-filter" value="tv mini series" checked> Mini-Series</label>
+                <label><input type="checkbox" class="type-filter" value="tv movie" checked> TV Movie</label>
+                <label><input type="checkbox" class="type-filter" value="tv special" checked> Special</label>
+                <label><input type="checkbox" class="type-filter" value="video" checked> Video</label>
+            </div>
+        </div>
+
+        <div class="filter-row">
+            <div class="filter-group">
+                <label class="section-label">Genre</label>
+                <select id="genre-select"><option value="all">All Genres</option></select>
+            </div>
+            <div class="filter-group">
+                <label class="section-label">Min IMDb Rating</label>
+                <input type="number" id="min-rating" step="0.1" min="0" max="10" placeholder="e.g. 7.0">
+            </div>
+        </div>
+
+        <div class="filter-row">
+            <div class="filter-group">
+                <label class="section-label">Release Year (After)</label>
+                <input type="number" id="min-year" placeholder="e.g. 2000">
+            </div>
+            <div class="filter-group">
+                <label class="section-label">Max Runtime (mins)</label>
+                <input type="number" id="max-runtime" placeholder="e.g. 120">
+            </div>
+        </div>
+        
+        <button id="spin-btn">RANDOM PICK</button>
+    </div>
+
+    <div id="result">
+        <div class="res-title" id="res-title"></div>
+        <div id="res-genres" style="color:var(--imdb-yellow); font-size:0.85rem; margin-bottom:10px; font-weight: bold;"></div>
+        <div class="res-meta" id="res-meta"></div>
+        <a href="#" id="res-link" target="_blank" class="imdb-btn">View on IMDb</a>
+    </div>
+</div>
+
+<script>
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const uiArea = document.getElementById('ui-area');
+    const genreSelect = document.getElementById('genre-select');
+    const toggleAll = document.getElementById('toggle-all');
+    let watchlist = [];
+
+    const COL = { URL: 7, TITLE: 5, TYPE: 8, RATING: 9, RUNTIME: 10, YEAR: 11, GENRE: 12 };
+
+    // Drag and Drop Handling
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, e => { e.preventDefault(); e.stopPropagation(); }, false);
+    });
+
+    dropZone.addEventListener('dragover', () => dropZone.classList.add('dragover'));
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    
+    dropZone.addEventListener('drop', (e) => {
+        dropZone.classList.remove('dragover');
+        const file = e.dataTransfer.files[0];
+        if (file) handleFile(file);
+    });
+
+    dropZone.onclick = () => fileInput.click();
+    fileInput.onchange = (e) => handleFile(e.target.files[0]);
+
+    function handleFile(file) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const rows = event.target.result.split(/\r?\n/).slice(1);
+            const genres = new Set();
+            watchlist = rows.map(row => {
+                const cols = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(c => c.replace(/^"|"$/g, '').trim());
+                if (cols.length > 10) {
+                    cols[COL.GENRE]?.split(',').forEach(g => genres.add(g.trim()));
+                    return cols;
+                }
+                return null;
+            }).filter(r => r);
+
+            genreSelect.innerHTML = '<option value="all">All Genres</option>';
+            Array.from(genres).sort().forEach(g => { if(g) genreSelect.add(new Option(g, g)); });
+
+            dropZone.innerHTML = `<b style="color:var(--imdb-yellow); text-transform: uppercase;">✅ ${watchlist.length} TITLES LOADED</b>`;
+            uiArea.style.display = 'block';
+            
+            // Set initial state: all checked, button says UNSELECT
+            const checkboxes = document.querySelectorAll('.type-filter');
+            checkboxes.forEach(cb => cb.checked = true);
+            updateToggleText();
+        };
+        reader.readAsText(file);
+    }
+
+    function updateToggleText() {
+        const checkboxes = document.querySelectorAll('.type-filter');
+        const anyChecked = Array.from(checkboxes).some(cb => cb.checked);
+        toggleAll.innerText = anyChecked ? "UNSELECT ALL" : "SELECT ALL";
+    }
+
+    // Monitor manual checkbox changes
+    document.addEventListener('change', (e) => {
+        if (e.target.classList.contains('type-filter')) {
+            updateToggleText();
+        }
+    });
+
+    // Toggle logic
+    toggleAll.onclick = () => {
+        const checkboxes = document.querySelectorAll('.type-filter');
+        const anyChecked = Array.from(checkboxes).some(cb => cb.checked);
+        
+        // If any are checked, clear them all. If none are checked, select them all.
+        checkboxes.forEach(cb => cb.checked = !anyChecked);
+        updateToggleText();
+    };
+
+    document.getElementById('spin-btn').onclick = () => {
+        const selectedTypes = Array.from(document.querySelectorAll('.type-filter:checked')).map(cb => cb.value);
+        const genre = genreSelect.value;
+        const minRating = parseFloat(document.getElementById('min-rating').value) || 0;
+        const minYear = parseInt(document.getElementById('min-year').value) || 0;
+        const maxRuntime = parseInt(document.getElementById('max-runtime').value) || 9999;
+
+        const filtered = watchlist.filter(item => {
+            const type = item[COL.TYPE]?.toLowerCase() || "";
+            const itemRating = parseFloat(item[COL.RATING]) || 0;
+            const itemYear = parseInt(item[COL.YEAR]) || 0;
+            const itemRuntime = parseInt(item[COL.RUNTIME]) || 0;
+            const itemGenres = item[COL.GENRE]?.toLowerCase() || "";
+
+            const typeMatch = selectedTypes.some(t => type === t);
+            const genreMatch = (genre === 'all' || itemGenres.includes(genre.toLowerCase()));
+            const ratingMatch = itemRating >= minRating;
+            const yearMatch = itemYear >= minYear;
+            const timeMatch = (itemRuntime === 0 || itemRuntime <= maxRuntime);
+
+            return typeMatch && genreMatch && ratingMatch && yearMatch && timeMatch;
+        });
+
+        if (filtered.length === 0) return alert("No results found. Try changing your filters!");
+
+        const pick = filtered[Math.floor(Math.random() * filtered.length)];
+        document.getElementById('res-title').innerText = pick[COL.TITLE];
+        document.getElementById('res-genres').innerText = pick[COL.GENRE];
+        document.getElementById('res-meta').innerText = `${pick[COL.YEAR]} • ${pick[COL.TYPE]} • ⭐ ${pick[COL.RATING] || 'N/A'} • ${pick[COL.RUNTIME] || '?'} mins`;
+        document.getElementById('res-link').href = pick[COL.URL];
+        document.getElementById('result').style.display = 'block';
+        document.getElementById('result').scrollIntoView({ behavior: 'smooth' });
+    };
+</script>
+</body>
+</html>
