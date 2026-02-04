@@ -1,4 +1,4 @@
-# 🎬 IMDb Watchlist Roulette
+# <img src="favicon.png" width="100" height="100" valign="middle"> IMDb Watchlist Roulette
 
 A simple, private, and powerful tool to help you decide what to watch next. Upload your exported IMDb watchlist CSV, apply filters, and let the roulette pick for you!
 
